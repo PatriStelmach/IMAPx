@@ -19,13 +19,14 @@ public class EmailExecutorService
     private ScheduledFuture<?> scheduledFuture;
     private final EmailService emailService;
 
+    //after 2 seconds of intitial delay, every 10 sedonds after the ond of the task, checkEmails is invoked
     public void startEmailChecking(Store store)
     {
         if (scheduledFuture != null && !scheduledFuture.isDone())
         {
             System.out.println("Scheduler is already running");
         }
-        else scheduledFuture = scheduler.scheduleAtFixedRate(() ->
+        else scheduledFuture = scheduler.scheduleWithFixedDelay(() ->
         {
             try
             {
@@ -35,10 +36,12 @@ public class EmailExecutorService
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-        }, 5, 5, TimeUnit.SECONDS);
+        }, 2, 10, TimeUnit.SECONDS);
     }
 
-    public void stopEmailChecking() throws InterruptedException {
+    //interrupts the email checking after 3 seconds so the data is saved
+    public void stopEmailChecking() throws InterruptedException
+    {
         if(scheduledFuture == null)
         {
             System.out.println("Scheduler is not running");
