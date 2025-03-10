@@ -21,12 +21,11 @@ public class EmailExecutorService
 
     public void startEmailChecking(Store store)
     {
-        if (scheduledFuture != null && !scheduledFuture.isCancelled())
+        if (scheduledFuture != null && !scheduledFuture.isDone())
         {
-            scheduledFuture.cancel(true);
+            System.out.println("Scheduler is already running");
         }
-
-        scheduledFuture = scheduler.scheduleAtFixedRate(() ->
+        else scheduledFuture = scheduler.scheduleAtFixedRate(() ->
         {
             try
             {
@@ -39,12 +38,15 @@ public class EmailExecutorService
         }, 5, 5, TimeUnit.SECONDS);
     }
 
-    public void stopEmailChecking()
-    {
+    public void stopEmailChecking() throws InterruptedException {
+        if(scheduledFuture == null)
+        {
+            System.out.println("Scheduler is not running");
+        }
         if (scheduledFuture != null)
         {
             scheduledFuture.cancel(true);
         }
-        scheduler.shutdown();
+        scheduler.awaitTermination(3, TimeUnit.SECONDS);
     }
 }
