@@ -24,18 +24,18 @@ public class EmailController
         try
         {
             Store store = emailService.establishConnection(imap, user, password);
-            return ResponseEntity.ok("Connected successfully!");
+            return ResponseEntity.ok("User" + user + "Connected successfully!");
         } catch (MessagingException e) {
             return ResponseEntity.status(500).body("Connection failed: " + e.getMessage());
         }
     }
 
     @PostMapping("/check")
-    public ResponseEntity<String> checkEmails(@RequestParam String imap, @RequestParam String user, @RequestParam String password)
+    public ResponseEntity<String> checkEmails(@RequestParam String user)
     {
         try
         {
-            Store store = emailService.establishConnection(imap, user, password);
+            Store store = emailService.storeConnection(user);
             emailExecutorService.startEmailChecking(store);
             return ResponseEntity.ok("Emails checked successfully!");
         } catch (MessagingException e) {
@@ -44,17 +44,18 @@ public class EmailController
     }
 
     @PostMapping("/stopChecking")
-    public ResponseEntity<String> stopChecking() {
+    public ResponseEntity<String> stopChecking() throws InterruptedException
+    {
         emailExecutorService.stopEmailChecking();
         return ResponseEntity.ok().body("Checking stopped");
     }
 
     @GetMapping("/search")
-    public ResponseEntity<String> searchEmails(@RequestParam String imap, @RequestParam String user, @RequestParam String password)
+    public ResponseEntity<String> searchEmails(@RequestParam String user)
     {
         try
         {
-            Store store = emailService.establishConnection(imap, user, password);
+            Store store = emailService.storeConnection(user);
             emailService.searchEmails(store);
             return ResponseEntity.ok("Search completed!");
         } catch (MessagingException e) {
@@ -63,10 +64,23 @@ public class EmailController
     }
 
     @GetMapping("/inboxCount")
-    public ResponseEntity<Integer> showInbox(@RequestParam String imap, @RequestParam String user, @RequestParam String password) throws MessagingException
+    public ResponseEntity<Integer> showInbox(@RequestParam String user) throws MessagingException
     {
-        Store store = emailService.establishConnection(imap, user, password);
+        Store store = emailService.storeConnection(user);
         int count = emailService.inboxCount(store);
         return ResponseEntity.ok().body(count);
+    }
+
+    @PostMapping("/closeConnection")
+    public ResponseEntity<String> closeConnection(@RequestParam String user)
+    {
+        try {
+            Store store = emailService.storeConnection(user);
+            emailService.closeConnection(user);
+            return ResponseEntity.ok().body("Connection closed!");
+        } catch
+            (MessagingException e) {
+            return ResponseEntity.status(500).body("Error during closing connection: " + e.getMessage());
+        }
     }
 }

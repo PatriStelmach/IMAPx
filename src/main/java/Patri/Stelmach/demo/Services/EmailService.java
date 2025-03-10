@@ -11,28 +11,53 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.hibernate.sql.ast.SqlTreeCreationLogger.LOGGER;
 
 @Service
 public class EmailService
 {
+    private final Map<String, Store> storeMap = new ConcurrentHashMap<>();
 
 
-    public Store establishConnection(String imap, String user, String password) throws MessagingException
+    public synchronized Store establishConnection (String imap, String user, String password) throws MessagingException
     {
-        Properties props = System.getProperties();
-        props.setProperty("mail.store.protocol", "imaps");
+        if (!storeMap.containsKey(user) || !storeMap.get(user).isConnected())
+        {
+            Properties props = new Properties();
+            props.setProperty("mail.store.protocol", "imaps");
 
-        Session session = Session.getDefaultInstance(props, null);
+            Session session = Session.getDefaultInstance(props, null);
 
-        Store store = session.getStore("imaps");
-        store.connect(imap, user, password);
+            Store store = session.getStore("imaps");
+            store.connect(imap, user, password);
 
-        return store;
+            storeMap.put(user, store);
+        }
+
+        return storeMap.get(user);
     }
-    public void checkEmails(Store store) throws MessagingException, IOException
+
+    public synchronized Store storeConnection (String user) throws MessagingException
+    {
+        if (!storeMap.containsKey(user) || !storeMap.get(user).isConnected()) {
+            throw new MessagingException("User " + user + " not connected");
+        }
+        return storeMap.get(user);
+    }
+
+    public synchronized void closeConnection (String user) throws MessagingException
+    {
+        if (storeMap.containsKey(user) && storeMap.get(user).isConnected()){
+            storeMap.get(user).close();
+            storeMap.remove(user);
+    }
+    }
+    public void checkEmails (Store store) throws MessagingException, IOException
     {
         Folder inbox = store.getFolder("inbox");
         inbox.open(Folder.READ_WRITE);
@@ -46,20 +71,18 @@ public class EmailService
             if (hasAttachment(message))
             {
                 System.out.println( "there is something");
-                Path subjectPath = Paths.get("C:\\Users\\" + message.getSubject());
+                Path subjectPath = Paths.get("C:\\Users" + message.getSubject());
                     Files.createDirectories(subjectPath);
 
                 saveAttachments(message);
                 moveToFolder(store, message);
-
-
             }
         }
 
         inbox.close(true);
     }
 
-    private boolean hasAttachment(Message message) throws MessagingException, IOException
+    private boolean hasAttachment (Message message) throws MessagingException, IOException
     {
 
         if (message.isMimeType("multipart/*"))
@@ -77,7 +100,7 @@ public class EmailService
         return false;
     }
 
-    private void saveAttachments(Message message) throws MessagingException, IOException
+    private void saveAttachments (Message message) throws MessagingException, IOException
     {
         Multipart multipart = (Multipart) message.getContent();
         for (int i = 0; i < multipart.getCount(); i++)
@@ -86,13 +109,13 @@ public class EmailService
             if (Part.ATTACHMENT.equalsIgnoreCase(part.getDisposition()))
             {
                 MimeBodyPart mimeBodyPart = (MimeBodyPart) part;
-                File file = new File("C:\\Users\\" + message.getSubject() + "\\" + mimeBodyPart.getFileName());
+                File file = new File("C:\\Users" + message.getSubject() + "\\" + mimeBodyPart.getFileName());
                 mimeBodyPart.saveFile(file);
             }
         }
     }
 
-    static void moveToFolder(Store store, Message message) throws MessagingException
+    static void moveToFolder (Store store, Message message) throws MessagingException
     {
         Folder destinationFolder = store.getFolder("OLD-RED");
         if (!destinationFolder.exists())
@@ -104,7 +127,7 @@ public class EmailService
         message.setFlag(Flags.Flag.DELETED, true);
     }
 
-    public int inboxCount(Store store) throws MessagingException
+    public int inboxCount (Store store) throws MessagingException
     {
         Folder inbox = store.getFolder("inbox");
         inbox.open(Folder.READ_ONLY);
@@ -115,7 +138,7 @@ public class EmailService
     }
 
 
-    public void searchEmails(Store store) throws MessagingException
+    public void searchEmails (Store store) throws MessagingException
     {
         Folder inbox = store.getFolder("inbox");
         inbox.open(Folder.READ_ONLY);
