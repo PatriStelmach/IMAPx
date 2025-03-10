@@ -1,7 +1,5 @@
 package Patri.Stelmach.demo.Services;
 
-import com.sun.mail.imap.IMAPFolder;
-import com.sun.mail.imap.SortTerm;
 import jakarta.mail.*;
 import jakarta.mail.internet.MimeBodyPart;
 import jakarta.mail.search.SubjectTerm;
@@ -13,7 +11,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.Properties;
 
 import static org.hibernate.sql.ast.SqlTreeCreationLogger.LOGGER;
@@ -49,7 +46,7 @@ public class EmailService
             if (hasAttachment(message))
             {
                 System.out.println( "there is something");
-                Path subjectPath = Paths.get("C:\\Users\\ASUS\\Documents\\GitHub\\" + message.getSubject());
+                Path subjectPath = Paths.get("C:\\Users\\" + message.getSubject());
                     Files.createDirectories(subjectPath);
 
                 saveAttachments(message);
@@ -89,7 +86,7 @@ public class EmailService
             if (Part.ATTACHMENT.equalsIgnoreCase(part.getDisposition()))
             {
                 MimeBodyPart mimeBodyPart = (MimeBodyPart) part;
-                File file = new File("C:\\Users\\ASUS\\Documents\\GitHub\\" + message.getSubject() + "\\" + mimeBodyPart.getFileName());
+                File file = new File("C:\\Users\\" + message.getSubject() + "\\" + mimeBodyPart.getFileName());
                 mimeBodyPart.saveFile(file);
             }
         }
@@ -107,16 +104,14 @@ public class EmailService
         message.setFlag(Flags.Flag.DELETED, true);
     }
 
-    static void emailCount(Store store) throws MessagingException
+    public int inboxCount(Store store) throws MessagingException
     {
         Folder inbox = store.getFolder("inbox");
-        Folder spam = store.getFolder("[Gmail]/Spam");
         inbox.open(Folder.READ_ONLY);
-        LOGGER.info("No of Messages : " + inbox.getMessageCount());
-        LOGGER.info("No of Unread Messages : " + inbox.getUnreadMessageCount());
-        LOGGER.info("No of Messages in spam : " + spam.getMessageCount());
-        LOGGER.info("No of Unread Messages in spam : " + spam.getUnreadMessageCount());
+        LOGGER.info("Number of Messages : " + inbox.getMessageCount());
         inbox.close(true);
+
+        return inbox.getMessageCount();
     }
 
 
@@ -134,7 +129,8 @@ public class EmailService
 
 
        //iterowanie od tyłu, aby wyświetlały się od najnowszych
-        for (int i = messages.length - 1; i >= 0; i--) {
+        for (int i = messages.length - 1; i >= 0; i--)
+        {
             LOGGER.info("Subject: " + messages[i].getSubject());
             LOGGER.info("From: " + Arrays.toString(messages[i].getFrom()));
         }
