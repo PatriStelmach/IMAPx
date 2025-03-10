@@ -64,22 +64,25 @@ public class EmailController
     }
 
     @GetMapping("/inboxCount")
-    public ResponseEntity<Integer> showInbox(@RequestParam String user) throws MessagingException
-    {
-        Store store = emailService.storeConnection(user);
-        int count = emailService.inboxCount(store);
-        return ResponseEntity.ok().body(count);
+    public ResponseEntity<Integer> showInbox(@RequestParam String user) throws MessagingException {
+        try
+        {
+            Store store = emailService.storeConnection(user);
+            int count = emailService.inboxCount(store);
+            return ResponseEntity.ok().body(count);
+        } catch (MessagingException e) {
+            return ResponseEntity.status(500).body(0);
+        }
     }
 
-    @PostMapping("/closeConnection")
+    @PostMapping("/disconnect")
     public ResponseEntity<String> closeConnection(@RequestParam String user)
     {
-        try {
-            Store store = emailService.storeConnection(user);
+        try
+        {
             emailService.closeConnection(user);
             return ResponseEntity.ok().body("Connection closed!");
-        } catch
-            (MessagingException e) {
+        } catch (MessagingException e) {
             return ResponseEntity.status(500).body("Error during closing connection: " + e.getMessage());
         }
     }
