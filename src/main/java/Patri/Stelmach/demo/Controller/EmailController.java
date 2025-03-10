@@ -1,5 +1,6 @@
 package Patri.Stelmach.demo.Controller;
 
+import Patri.Stelmach.demo.DTO.EmailDto;
 import Patri.Stelmach.demo.Services.EmailExecutorService;
 import Patri.Stelmach.demo.Services.EmailService;
 import jakarta.mail.MessagingException;
@@ -7,6 +8,9 @@ import jakarta.mail.Store;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.Collections;
+import java.util.List;
 
 @RequestMapping("/api")
 @RestController
@@ -44,27 +48,36 @@ public class EmailController
     }
 
     @PostMapping("/stopChecking")
-    public ResponseEntity<String> stopChecking() throws InterruptedException
+    public ResponseEntity<String> stopChecking(String user) throws InterruptedException
     {
-        emailExecutorService.stopEmailChecking();
-        return ResponseEntity.ok().body("Checking stopped");
+        try
+        {
+            Store store = emailService.storeConnection(user);
+
+            emailExecutorService.stopEmailChecking();
+            return ResponseEntity.ok().body("Checking stopped");
+        } catch (MessagingException e) {
+            throw new RuntimeException(e);
+        }
     }
 
+
     @GetMapping("/search")
-    public ResponseEntity<String> searchEmails(@RequestParam String user)
+    public ResponseEntity <List<EmailDto>> searchEmails(@RequestParam String user)
     {
         try
         {
             Store store = emailService.storeConnection(user);
             emailService.searchEmails(store);
-            return ResponseEntity.ok("Search completed!");
+            return ResponseEntity.ok().body(emailService.searchEmails(store));
         } catch (MessagingException e) {
-            return ResponseEntity.status(500).body("Search failed: " + e.getMessage());
+            return ResponseEntity.status(500).body(Collections.emptyList());
         }
     }
 
     @GetMapping("/inboxCount")
-    public ResponseEntity<Integer> showInbox(@RequestParam String user) throws MessagingException {
+    public ResponseEntity<Integer> showInbox(@RequestParam String user)
+    {
         try
         {
             Store store = emailService.storeConnection(user);
