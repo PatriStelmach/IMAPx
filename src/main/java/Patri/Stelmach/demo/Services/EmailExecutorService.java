@@ -1,11 +1,13 @@
 package Patri.Stelmach.demo.Services;
 
+import Patri.Stelmach.demo.DTO.EmailDto;
 import jakarta.mail.MessagingException;
 import jakarta.mail.Store;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -36,7 +38,21 @@ public class EmailExecutorService
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-        }, 2, 10, TimeUnit.SECONDS);
+        }, 0, 10, TimeUnit.SECONDS);
+    }
+
+    public List<EmailDto> startSearching(Store store) throws MessagingException
+    {
+        scheduledFuture = scheduler.scheduleWithFixedDelay(() ->
+                {
+                    try
+                    {
+                        emailService.searchEmails(store);
+                    } catch (MessagingException e) {
+                        throw new RuntimeException(e);
+                    }
+                }, 0,10,TimeUnit.SECONDS);
+        return emailService.searchEmails(store);
     }
 
     //interrupts the email checking after 3 seconds so the data is saved
