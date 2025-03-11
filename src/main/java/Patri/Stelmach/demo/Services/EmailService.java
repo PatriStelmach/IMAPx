@@ -4,6 +4,8 @@ import Patri.Stelmach.demo.DTO.EmailDto;
 import jakarta.mail.*;
 import jakarta.mail.internet.MimeBodyPart;
 import jakarta.mail.search.SubjectTerm;
+import javafx.application.Platform;
+import org.controlsfx.control.Notifications;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
@@ -77,17 +79,54 @@ public class EmailService
             if (hasAttachment(message))
             {
                 System.out.println( "there is something");
-                Path subjectPath = Paths.get("C:\\Users" + message.getSubject());
+                Path subjectPath = Paths.get("C:\\Users\\" + message.getSubject());
                 Files.createDirectories(subjectPath);
 
                 saveAttachments(message);
                 moveToFolder(store, message);
+
+                Platform.runLater(() ->
+                {
+                    try
+                    {
+                        Notifications.create()
+                                .title("Email found")
+                                .text( "Sender: " + message.getFrom()[0]+ "\n" +
+                                       "Subject: " + message.getSubject() + "\n" +
+                                       "Attachments: " + getAttachmentCount(message) + "\n" +
+                                       "Saved to: " + subjectPath.toString())
+                                .showInformation();
+                    } catch (MessagingException e) {
+                        throw new RuntimeException(e);
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
+                    }
+
+                });
             }
         }
 
         inbox.close(true);
     }
 
+    private int getAttachmentCount(Message message) throws MessagingException, IOException
+    {
+        int count = 0;
+        if(message.isMimeType("multipart/**"))
+        {
+            Multipart multipart = (Multipart) message.getContent();
+
+            for(int i = 0; i < multipart.getCount(); i++)
+            {
+                BodyPart part = multipart.getBodyPart(i);
+                if(Part.ATTACHMENT.equalsIgnoreCase(part.getDescription()))
+                {
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
     //searches for multiparts - attachements in email message
     private boolean hasAttachment (Message message) throws MessagingException, IOException
     {
@@ -150,6 +189,7 @@ public class EmailService
     //loads every email message from the inbox and shows the first 10
     public List<EmailDto> searchEmails (Store store) throws MessagingException
     {
+
         Folder inbox = store.getFolder("inbox");
         inbox.open(Folder.READ_ONLY);
 

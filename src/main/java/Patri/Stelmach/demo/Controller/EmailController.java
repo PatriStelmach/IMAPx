@@ -68,8 +68,8 @@ public class EmailController
         try
         {
             Store store = emailService.storeConnection(user);
-            emailService.searchEmails(store);
-            return ResponseEntity.ok().body(emailService.searchEmails(store));
+            emailExecutorService.startSearching(store);
+            return ResponseEntity.ok().body(emailExecutorService.startSearching(store));
         } catch (MessagingException e) {
             return ResponseEntity.status(500).body(Collections.emptyList());
         }

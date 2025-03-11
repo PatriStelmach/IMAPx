@@ -88,6 +88,16 @@
 			<artifactId>spring-security-core</artifactId>
 			<version>6.4.3</version>
 		</dependency>
+			<dependency>
+				<groupId>org.openjfx</groupId>
+				<artifactId>javafx-controls</artifactId>
+				<version>17.0.1</version>
+			</dependency>
+			<dependency>
+				<groupId>org.openjfx</groupId>
+				<artifactId>javafx-fxml</artifactId>
+				<version>17.0.1</version>
+			</dependency>
 
 		<dependency>
 			<groupId>org.springframework.security</groupId>
@@ -108,6 +118,11 @@
 			<artifactId>spring-integration-mail</artifactId>
 			<version>6.4.2</version>
 		</dependency>
+		<dependency>
+			<groupId>org.controlsfx</groupId>
+			<artifactId>controlsfx</artifactId>
+			<version>11.2.1</version>
+		</dependency>
 
 	</dependencies>
 
@@ -123,6 +138,14 @@
 							<artifactId>lombok</artifactId>
 						</exclude>
 					</excludes>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.openjfx</groupId>
+				<artifactId>javafx-maven-plugin</artifactId>
+				<version>0.0.8</version>
+				<configuration>
+					<mainClass>Patri.Stelmach.demo.Frontend.EmailClientApp</mainClass>
 				</configuration>
 			</plugin>
 		</plugins>
