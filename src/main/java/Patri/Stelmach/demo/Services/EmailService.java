@@ -28,7 +28,7 @@ public class EmailService
 
 
 
-    private String path = "C:\\Users\\ASUS\\maile\\";
+    private String path = System.getProperty("user.home") + "/maile/";
 
 
     public void changePath(String path)
@@ -94,7 +94,7 @@ public class EmailService
             {
 
 
-                if (message.getSubject().contains("[RED") &&hasAttachment(message)) {
+                if (message.getSubject().contains("[RED]") &&hasAttachment(message)) {
                     System.out.println("Found message with attachment");
                     Path subjectPath = Paths.get(path + message.getSubject());
 
@@ -132,9 +132,11 @@ public class EmailService
         }
     }
     //loads every email message from the inbox and shows the first 10
+
+
     public List<EmailDto> searchAndCheckEmails(Store store) throws MessagingException, IOException
     {
-        if(store.isConnected()) {
+        if (store.isConnected()) {
             Folder inbox = store.getFolder("inbox");
             inbox.open(Folder.READ_WRITE);
 
@@ -153,7 +155,7 @@ public class EmailService
                 String subject = messages[i].getSubject();
                 emailList.add(new EmailDto(subject, sender));
 
-                if (messages[i].getSubject().contains("[RED") && hasAttachment(messages[i]))
+                if (messages[i].getSubject().contains("[RED]") && hasAttachment(messages[i]))
                 {
 
                     Path subjectPath = Paths.get(path + messages[i].getSubject());
@@ -183,8 +185,55 @@ public class EmailService
             inbox.close(false);
             return emailList;
         }
-        return null;
+        else return null;
     }
+
+    public int inboxCount (Store store) throws MessagingException
+    {
+        Folder inbox = store.getFolder("inbox");
+        inbox.open(Folder.READ_WRITE);
+        LOGGER.info("Number of Messages : " + inbox.getMessageCount());
+        inbox.close(true);
+
+        return inbox.getMessageCount();
+    }
+    public List<EmailDto> searchOldRed(Store store) throws MessagingException, IOException
+    {
+        if (store.isConnected()) {
+            Folder oldREd = store.getFolder("OLD-RED");
+            oldREd.open(Folder.READ_WRITE);
+
+
+            Message[] messages = oldREd.getMessages();
+
+            List<EmailDto> emailList = new ArrayList<>();
+            for (int i = messages.length - 1; i >= 0; i--)
+            {
+                Address[] addresses = messages[i].getFrom();
+                String sender = addresses.length > 0 ? addresses[0].toString() : "Unknown";
+
+                String subject = messages[i].getSubject();
+                emailList.add(new EmailDto(subject, sender));
+
+            }
+
+
+            oldREd.close(false);
+            return emailList;
+        }
+        else return null;
+    }
+
+    public int oldRedCount (Store store) throws MessagingException
+    {
+        Folder oldRed = store.getFolder("OLD-RED");
+        oldRed.open(Folder.READ_WRITE);
+        LOGGER.info("Number of Messages : " + oldRed.getMessageCount());
+        oldRed.close(true);
+
+        return oldRed.getMessageCount();
+    }
+
 
 
     private int getAttachmentCount(Message message) throws MessagingException, IOException
@@ -256,15 +305,7 @@ public class EmailService
     }
 
     //returns value of emails in the inbox
-    public int inboxCount (Store store) throws MessagingException
-    {
-        Folder inbox = store.getFolder("inbox");
-        inbox.open(Folder.READ_WRITE);
-        LOGGER.info("Number of Messages : " + inbox.getMessageCount());
-        inbox.close(true);
 
-        return inbox.getMessageCount();
-    }
 
 
 
