@@ -43,9 +43,10 @@ public class EmailClientApp extends Application
     private Button connectButton = new Button("Connect");
     private Button disconnectButton = new Button("Disconnect");
     private Label inboxCountLabel = new Label();
-    private Label inbox = new Label("Inbox");
-    private Label oldRed = new Label("OLD-RED");
+    private Label oldRedCountLabel = new Label();
+
     private ListView<String> emailListView = new ListView<>();
+    private ListView<String> oldRedView = new ListView<>();
 
     private EmailExecutorService emailExecutorService = new EmailExecutorService(emailService);
 
@@ -69,8 +70,13 @@ public class EmailClientApp extends Application
 
         VBox centerBox = new VBox();
         centerBox.setAlignment(Pos.CENTER);
-        centerBox.setSpacing(10);
+        centerBox.setSpacing(5);
         centerBox.setPadding(new Insets(20));
+
+        VBox bottomBox  = new VBox();
+        bottomBox.setAlignment(Pos.BOTTOM_CENTER);
+        bottomBox.setSpacing(5);
+        bottomBox.setPadding(new Insets(20));
 
         Label title = new Label("Email Client");
 
@@ -78,11 +84,14 @@ public class EmailClientApp extends Application
         title.setTextFill(Color.web("#68af25"));
 
         centerBox.getChildren().addAll
-                (title, imapField, userField, passwordField, changePath, pathButton, inboxCountLabel, emailListView);
+                (title, imapField, userField, passwordField, changePath, pathButton,
+                        inboxCountLabel, emailListView);
+        bottomBox.getChildren().addAll(oldRedCountLabel, oldRedView);
         root.setCenter(centerBox);
+        root.setBottom(bottomBox);
         root.setStyle("-fx-background-color: #333333;");
 
-        Scene scene = new Scene(root, 700, 700);
+        Scene scene = new Scene(root, 1000, 1000);
         scene.getStylesheets().add(getClass().getResource("/styles.css").toExternalForm());
 
         disconnectButton.getStyleClass().add("button");
@@ -93,15 +102,21 @@ public class EmailClientApp extends Application
         imapField.setPromptText("IMAP Server");
         userField.setPromptText("e-mail address");
         passwordField.setPromptText("password");
-        changePath.setPromptText("enter path where your attachments will be saved");
+        changePath.setPromptText("enter path where your attachments will be saved, default path is: /home/username/ ");
 
         connectButton.setOnAction(e -> connectToEmail());
         disconnectButton.setOnAction(e -> disconnect());
         pathButton.setOnAction(e -> settingPath(changePath.getText()));
 
+        oldRedCountLabel.setFont(new Font(24));
+        oldRedCountLabel.setTextFill(Color.WHITE);
+        oldRedView.setPrefHeight(200);
+
         inboxCountLabel.setFont(new Font(24));
         inboxCountLabel.setTextFill(Color.WHITE);
-        emailListView.setPrefHeight(300);
+        emailListView.setPrefHeight(200);
+
+
 
         primaryStage.setScene(scene);
         primaryStage.setTitle("Email Client");
@@ -120,11 +135,18 @@ public class EmailClientApp extends Application
                     .showInformation();
 
             PauseTransition delay = new PauseTransition(Duration.seconds(2));
-            delay.setOnFinished(event -> Platform.exit());
+            delay.setOnFinished(event ->
+            {
+                Platform.exit();
+                System.exit(0);
+            });
             delay.play();
+
         });
         return exit;
     }
+
+
 
 
     private void settingPath(String path)
@@ -135,8 +157,6 @@ public class EmailClientApp extends Application
                     .title("Path established")
                     .text("Path set to: " + path)
                     .showConfirm();
-            checkEmails();
-            updateInbox();
         });
     }
 
@@ -159,10 +179,11 @@ public class EmailClientApp extends Application
                 Platform.runLater(() -> {
                     Notifications.create()
                             .title("Connection Successful")
-                            .text("Connected to email server.")
+                            .text("Connected to e-mail server.")
                             .showConfirm();
                     checkEmails();
                     updateInbox();
+                    updateOldRed();
                 });
             }
             @Override
@@ -224,7 +245,49 @@ public class EmailClientApp extends Application
         }
     }
 
+    public void updateOldRed()
+    {
+        if (scheduledFuture == null || scheduledFuture.isCancelled())
+    {
+        scheduledFuture = scheduler.scheduleWithFixedDelay(() -> {
+            Task<Void> updateInboxTask = new Task<Void>()
+            {
+                @Override
+                protected Void call() throws Exception
+                {
+                    String user = userField.getText();
+                    int count = emailService.oldRedCount(emailService.storeConnection(user));
 
+                    Platform.runLater(() -> {
+                        oldRedCountLabel.setText("OLD-RED Count: " + count);
+                    });
+
+                    List<EmailDto> emails = emailExecutorService.startSearchingOldRed(emailService.storeConnection(user));
+                    Platform.runLater(() -> {
+                        oldRedView.getItems().clear();
+                        for (EmailDto email : emails)
+                        {
+                            oldRedView.getItems().add(email.getSender() + " - " + email.getSubject());
+                        }
+                    });
+                    return null;
+                }
+                @Override
+                protected void failed()
+                {
+                    Platform.runLater(() -> {
+                        Notifications.create()
+                                .title("Error")
+                                .text("Failed to update OLD-RED: " + getException().getMessage())
+                                .showError();
+                    });
+                }
+            };
+
+            new Thread(updateInboxTask).start();
+        }, 10, 10, TimeUnit.SECONDS);
+    }
+}
 
 
     private void checkEmails()
@@ -249,8 +312,8 @@ public class EmailClientApp extends Application
             {
                 Platform.runLater(() -> {
                     Notifications.create()
-                            .title("Email Checked")
-                            .text("Emails have been checked successfully.")
+                            .title("E-mail Checked")
+                            .text("E-mails have been checked successfully.")
                             .showInformation();
                 });
             }
@@ -260,7 +323,7 @@ public class EmailClientApp extends Application
                 Platform.runLater(() -> {
                     Notifications.create()
                             .title("Error")
-                            .text("Failed to check emails: " + getException().getMessage())
+                            .text("Failed to check e-mails: " + getException().getMessage())
                             .showError();
                 });
             }
@@ -277,7 +340,7 @@ public class EmailClientApp extends Application
             emailService.closeConnection(user);
             Notifications.create()
                     .title("Disconnected")
-                    .text("Disconnected from email server.")
+                    .text("Disconnected from e-mail server.")
                     .showConfirm();
         } catch (Exception e) {
             Notifications.create()

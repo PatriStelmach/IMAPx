@@ -32,8 +32,21 @@ public class EmailExecutorService
             } catch (MessagingException | IOException e) {
                 throw new RuntimeException(e);
             }
-        }, 0,10,TimeUnit.SECONDS);
+        }, 1,10,TimeUnit.SECONDS);
         return emailService.searchAndCheckEmails(store);
+    }
+
+    public List<EmailDto> startSearchingOldRed(Store store) throws MessagingException, IOException {
+        scheduledFuture = scheduler.scheduleWithFixedDelay(() ->
+        {
+            try
+            {
+                emailService.searchOldRed(store);
+            } catch (MessagingException | IOException e) {
+                throw new RuntimeException(e);
+            }
+        }, 1,10,TimeUnit.SECONDS);
+        return emailService.searchOldRed(store);
     }
 
 
