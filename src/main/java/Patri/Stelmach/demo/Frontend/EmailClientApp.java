@@ -4,20 +4,22 @@ import Patri.Stelmach.demo.DTO.EmailDto;
 import Patri.Stelmach.demo.Services.EmailExecutorService;
 import Patri.Stelmach.demo.Services.EmailService;
 import jakarta.mail.MessagingException;
+import javafx.animation.PauseTransition;
 import javafx.application.Application;
 import javafx.application.Platform;
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
+import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.stage.Stage;
 import javafx.util.Duration;
-import lombok.AllArgsConstructor;
 import org.controlsfx.control.Notifications;
 
 import java.util.List;
@@ -33,56 +35,110 @@ public class EmailClientApp extends Application
     private ScheduledFuture<?> scheduledFuture;
 
     private  EmailService emailService = new EmailService();
-
     private TextField imapField = new TextField();
     private TextField userField = new TextField();
+    private TextField changePath = new TextField();
     private TextField passwordField = new PasswordField();
+    private Button pathButton = new Button("Set path");
     private Button connectButton = new Button("Connect");
-    private Button checkEmailsButton = new Button("Check Emails");
-    private Button stopCheckingButton = new Button("Stop Checking");
     private Button disconnectButton = new Button("Disconnect");
     private Label inboxCountLabel = new Label();
+    private Label inbox = new Label("Inbox");
+    private Label oldRed = new Label("OLD-RED");
     private ListView<String> emailListView = new ListView<>();
-
 
     private EmailExecutorService emailExecutorService = new EmailExecutorService(emailService);
 
     @Override
-    public void start(Stage primaryStage)
-    {
-        VBox root = new VBox();
-        root.setAlignment(Pos.CENTER);
-        root.setSpacing(10);
-        root.setPadding(new Insets(20));
+    public void start(Stage primaryStage) {
+        Platform.setImplicitExit(true);
 
-        root.setStyle("-fx-background-color: #333333;");
+        BorderPane root = new BorderPane();
+
+        HBox topBox = new HBox();
+        topBox.setPadding(new Insets(10));
+        topBox.setSpacing(10);
+
+        Button exit = getButton();
+
+        HBox.setHgrow(connectButton, Priority.ALWAYS);
+        connectButton.setMaxWidth(Double.MAX_VALUE);
+
+        topBox.getChildren().addAll(disconnectButton, connectButton, exit);
+        root.setTop(topBox);
+
+        VBox centerBox = new VBox();
+        centerBox.setAlignment(Pos.CENTER);
+        centerBox.setSpacing(10);
+        centerBox.setPadding(new Insets(20));
 
         Label title = new Label("Email Client");
-        title.setFont(new Font(24));
-        title.setTextFill(Color.WHITE);
+
+        title.setFont(new Font(48));
+        title.setTextFill(Color.web("#68af25"));
+
+        centerBox.getChildren().addAll
+                (title, imapField, userField, passwordField, changePath, pathButton, inboxCountLabel, emailListView);
+        root.setCenter(centerBox);
+        root.setStyle("-fx-background-color: #333333;");
+
+        Scene scene = new Scene(root, 700, 700);
+        scene.getStylesheets().add(getClass().getResource("/styles.css").toExternalForm());
+
+        disconnectButton.getStyleClass().add("button");
+        connectButton.getStyleClass().add("button");
+        exit.getStyleClass().add("button");
+        pathButton.getStyleClass().add("button");
 
         imapField.setPromptText("IMAP Server");
         userField.setPromptText("e-mail address");
         passwordField.setPromptText("password");
+        changePath.setPromptText("enter path where your attachments will be saved");
 
         connectButton.setOnAction(e -> connectToEmail());
-        checkEmailsButton.setOnAction(e -> checkEmails());
-        stopCheckingButton.setOnAction(e -> stopChecking());
         disconnectButton.setOnAction(e -> disconnect());
+        pathButton.setOnAction(e -> settingPath(changePath.getText()));
 
+        inboxCountLabel.setFont(new Font(24));
         inboxCountLabel.setTextFill(Color.WHITE);
         emailListView.setPrefHeight(300);
 
-        root.getChildren().addAll(title, imapField, userField, passwordField, connectButton,
-                inboxCountLabel, emailListView, checkEmailsButton, stopCheckingButton, disconnectButton);
-
-        Scene scene = new Scene(root, 600, 600);
         primaryStage.setScene(scene);
         primaryStage.setTitle("Email Client");
         primaryStage.show();
     }
 
+    private Button getButton()
+    {
 
+        Button exit = new Button("Exit");
+        exit.setOnAction(e -> {
+            disconnect();
+            Notifications.create()
+                    .title("Terminated")
+                    .text("The application is shutting down")
+                    .showInformation();
+
+            PauseTransition delay = new PauseTransition(Duration.seconds(2));
+            delay.setOnFinished(event -> Platform.exit());
+            delay.play();
+        });
+        return exit;
+    }
+
+
+    private void settingPath(String path)
+    {
+        emailService.changePath(path);
+        Platform.runLater(() -> {
+            Notifications.create()
+                    .title("Path established")
+                    .text("Path set to: " + path)
+                    .showConfirm();
+            checkEmails();
+            updateInbox();
+        });
+    }
 
     private void connectToEmail()
     {
@@ -90,106 +146,127 @@ public class EmailClientApp extends Application
         String user = userField.getText();
         String password = passwordField.getText();
 
-        try
+        Task<Void> connectionTask = new Task<Void>()
         {
-            emailService.establishConnection(imap, user, password);
-            Notifications.create()
-                    .title("Connection Successful")
-                    .text("Connected to email server.")
-                    .showConfirm();
-            checkEmails();
-            updateInbox();
-            Notifications.create()
-                    .title("Checking Emails")
-                    .text("Email checking started.")
-                    .showInformation();
+            @Override
+            protected Void call() throws Exception {
+                emailService.establishConnection(imap, user, password);
+                return null;
+            }
+            @Override
+            protected void succeeded()
+            {
+                Platform.runLater(() -> {
+                    Notifications.create()
+                            .title("Connection Successful")
+                            .text("Connected to email server.")
+                            .showConfirm();
+                    checkEmails();
+                    updateInbox();
+                });
+            }
+            @Override
+            protected void failed()
+            {
+                Platform.runLater(() -> {
+                    Notifications.create()
+                            .title("Connection Failed")
+                            .text("Failed to connect: " + getException().getMessage())
+                            .showError();
+                });
+            }
+        };
 
-        } catch (Exception e) {
-            Notifications.create()
-                    .title("Connection Failed")
-                    .text("Failed to connect: " + e.getMessage())
-                    .showError();
-        }
+        new Thread(connectionTask).start();
     }
 
     private void updateInbox()
     {
-        scheduledFuture = scheduler.scheduleWithFixedDelay(() ->
+        if (scheduledFuture == null || scheduledFuture.isCancelled())
         {
+            scheduledFuture = scheduler.scheduleWithFixedDelay(() -> {
+                Task<Void> updateInboxTask = new Task<Void>()
+                {
+                    @Override
+                    protected Void call() throws Exception
+                    {
+                        String user = userField.getText();
+                        int count = emailService.inboxCount(emailService.storeConnection(user));
 
-            try
-            {
-                String user = userField.getText();
-                int count = emailService.inboxCount(emailService.storeConnection(user));
-                Platform.runLater(() -> {
-                    inboxCountLabel.setText("Inbox Count: " + count);
-                });
+                        Platform.runLater(() -> {
+                            inboxCountLabel.setText("Inbox Count: " + count);
+                        });
 
-                List<EmailDto> emails = emailExecutorService.startSearching(emailService.storeConnection(user));
-
-                Platform.runLater(() -> {
-                    emailListView.getItems().clear();
-                    for (EmailDto email : emails) {
-                        emailListView.getItems().add(email.getSender() + " - " + email.getSubject());
+                        List<EmailDto> emails = emailExecutorService.startSearching(emailService.storeConnection(user));
+                        Platform.runLater(() -> {
+                            emailListView.getItems().clear();
+                            for (EmailDto email : emails)
+                            {
+                                emailListView.getItems().add(email.getSender() + " - " + email.getSubject());
+                            }
+                        });
+                        return null;
                     }
-                });
+                    @Override
+                    protected void failed()
+                    {
+                        Platform.runLater(() -> {
+                            Notifications.create()
+                                    .title("Error")
+                                    .text("Failed to update inbox: " + getException().getMessage())
+                                    .showError();
+                        });
+                    }
+                };
 
-            } catch (Exception e) {
-                Platform.runLater(() -> {
-                    Notifications.create()
-                            .title("Error")
-                            .text("Failed to update inbox: " + e.getMessage())
-                            .showError();
-                });
-            }
-        }, 0, 10, TimeUnit.SECONDS);
+                new Thread(updateInboxTask).start();
+            }, 7, 10, TimeUnit.SECONDS);
+        }
     }
+
 
 
 
     private void checkEmails()
     {
-        scheduledFuture = scheduler.scheduleWithFixedDelay(() ->
-            {
-                try {
-                    String user = userField.getText();
-                    Platform.runLater(() -> {
-                        try {
-                            emailExecutorService.startEmailChecking(emailService.storeConnection(user));
-                        } catch (MessagingException e) {
-                            throw new RuntimeException(e);
-                        }
+        String user = userField.getText();
 
-                    });
-
-                } catch (Exception e) {
-                    Platform.runLater(() -> {
-                        Notifications.create()
-                                .title("Error")
-                                .text("Failed to start email checking: " + e.getMessage())
-                                .showError();
-                    });
-                }
-            }, 0, 10, TimeUnit.SECONDS);
-        }
-
-
-
-    private void stopChecking()
-    {
-        try
+        Task<Void> checkEmailsTask = new Task<Void>()
         {
-            emailExecutorService.stopEmailChecking();
-            Notifications.create()
-                    .title("Stopped Checking")
-                    .text("Email checking stopped.")
-                    .showInformation();
-        } catch (Exception e) {
-            Notifications.create()
-                    .title("Error")
-                    .text("Failed to stop email checking: " + e.getMessage())
-                    .showError();
-        }
+            @Override
+            protected Void call() throws Exception
+            {
+                try
+                {
+                    emailService.checkEmailsOnLogin(emailService.storeConnection(user));
+                } catch (MessagingException e) {
+                    throw new RuntimeException(e);
+                }
+                return null;
+            }
+            @Override
+            protected void succeeded()
+            {
+                Platform.runLater(() -> {
+                    Notifications.create()
+                            .title("Email Checked")
+                            .text("Emails have been checked successfully.")
+                            .showInformation();
+                });
+            }
+            @Override
+            protected void failed()
+            {
+                Platform.runLater(() -> {
+                    Notifications.create()
+                            .title("Error")
+                            .text("Failed to check emails: " + getException().getMessage())
+                            .showError();
+                });
+            }
+        };
+
+        new Thread(checkEmailsTask).start();
     }
 
     private void disconnect()

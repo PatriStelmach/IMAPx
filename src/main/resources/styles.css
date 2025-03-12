@@ -1,0 +1,9 @@
+.button {
+    -fx-font: 16px "Serif";
+    -fx-background-color: #68af25;
+}
+
+.button:hover {
+    -fx-background-color: #14cb00;
+    -fx-cursor: hand;
+}

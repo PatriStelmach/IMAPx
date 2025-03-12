@@ -14,56 +14,29 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 @Service
-
+@RequiredArgsConstructor
 public class EmailExecutorService
 {
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private ScheduledFuture<?> scheduledFuture;
     private final EmailService emailService;
 
-    public EmailExecutorService (EmailService emailService)
-    {
-        this.emailService = emailService;
-    }
 
     //after 2 seconds of initial delay, every 10 seconds after the ond of the task, checkEmails is invoked
-    public void startEmailChecking(Store store)
-    {
-        if (scheduledFuture == null || scheduledFuture.isCancelled())
-        {
-            scheduledFuture = scheduler.scheduleWithFixedDelay(() -> {
-                try {
-                    emailService.checkEmails(store);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }, 0, 30, TimeUnit.SECONDS);
-        }
-    }
-
-    public List<EmailDto> startSearching(Store store) throws MessagingException
-    {
+    public List<EmailDto> startSearching(Store store) throws MessagingException, IOException {
         scheduledFuture = scheduler.scheduleWithFixedDelay(() ->
         {
             try
             {
-                emailService.searchEmails(store);
-            } catch (MessagingException e) {
+                emailService.searchAndCheckEmails(store);
+            } catch (MessagingException | IOException e) {
                 throw new RuntimeException(e);
             }
         }, 0,10,TimeUnit.SECONDS);
-        return emailService.searchEmails(store);
+        return emailService.searchAndCheckEmails(store);
     }
 
-    //interrupts the email checking after 3 seconds so the data is saved
-    public void stopEmailChecking() throws InterruptedException
-    {
-        if (scheduledFuture != null)
-        {
-            scheduledFuture.cancel(true);
-            emailService.stopCheckingEmails();
-            scheduledFuture = null;
-        }
-        scheduler.awaitTermination(3, TimeUnit.SECONDS);
-    }
+
+
+
 }
