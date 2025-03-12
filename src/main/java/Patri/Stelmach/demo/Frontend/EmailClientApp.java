@@ -31,6 +31,7 @@ public class EmailClientApp extends Application
 {
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private ScheduledFuture<?> scheduledFuture;
+
     private  EmailService emailService = new EmailService();
 
     private TextField imapField = new TextField();
@@ -42,6 +43,7 @@ public class EmailClientApp extends Application
     private Button disconnectButton = new Button("Disconnect");
     private Label inboxCountLabel = new Label();
     private ListView<String> emailListView = new ListView<>();
+
 
     private EmailExecutorService emailExecutorService = new EmailExecutorService(emailService);
 
@@ -95,7 +97,13 @@ public class EmailClientApp extends Application
                     .title("Connection Successful")
                     .text("Connected to email server.")
                     .showConfirm();
+            checkEmails();
             updateInbox();
+            Notifications.create()
+                    .title("Checking Emails")
+                    .text("Email checking started.")
+                    .showInformation();
+
         } catch (Exception e) {
             Notifications.create()
                     .title("Connection Failed")
@@ -107,53 +115,65 @@ public class EmailClientApp extends Application
     private void updateInbox()
     {
         scheduledFuture = scheduler.scheduleWithFixedDelay(() ->
-    {
-
-        try
         {
-            String user = userField.getText();
-            int count = emailService.inboxCount(emailService.storeConnection(user));
-            Platform.runLater(() -> {
-                inboxCountLabel.setText("Inbox Count: " + count);
-            });
 
-            List<EmailDto> emails = emailExecutorService.startSearching(emailService.storeConnection(user));
-            // Use Platform.runLater() for updating the email list view
-            Platform.runLater(() -> {
-                emailListView.getItems().clear();
-                for (EmailDto email : emails) {
-                    emailListView.getItems().add(email.getSender() + " - " + email.getSubject());
-                }
-            });
+            try
+            {
+                String user = userField.getText();
+                int count = emailService.inboxCount(emailService.storeConnection(user));
+                Platform.runLater(() -> {
+                    inboxCountLabel.setText("Inbox Count: " + count);
+                });
 
-        } catch (Exception e) {
-            Platform.runLater(() -> {
-                Notifications.create()
-                        .title("Error")
-                        .text("Failed to update inbox: " + e.getMessage())
-                        .showError();
-            });
-        }
-    }, 0, 10, TimeUnit.SECONDS);
+                List<EmailDto> emails = emailExecutorService.startSearching(emailService.storeConnection(user));
+
+                Platform.runLater(() -> {
+                    emailListView.getItems().clear();
+                    for (EmailDto email : emails) {
+                        emailListView.getItems().add(email.getSender() + " - " + email.getSubject());
+                    }
+                });
+
+            } catch (Exception e) {
+                Platform.runLater(() -> {
+                    Notifications.create()
+                            .title("Error")
+                            .text("Failed to update inbox: " + e.getMessage())
+                            .showError();
+                });
+            }
+        }, 0, 10, TimeUnit.SECONDS);
     }
+
+
 
     private void checkEmails()
     {
-        try
-        {
-            String user = userField.getText();
-            emailExecutorService.startEmailChecking(emailService.storeConnection(user));
-            Notifications.create()
-                    .title("Checking Emails")
-                    .text("Email checking started.")
-                    .showInformation();
-        } catch (Exception e) {
-            Notifications.create()
-                    .title("Error")
-                    .text("Failed to start email checking: " + e.getMessage())
-                    .showError();
+        scheduledFuture = scheduler.scheduleWithFixedDelay(() ->
+            {
+                try {
+                    String user = userField.getText();
+                    Platform.runLater(() -> {
+                        try {
+                            emailExecutorService.startEmailChecking(emailService.storeConnection(user));
+                        } catch (MessagingException e) {
+                            throw new RuntimeException(e);
+                        }
+
+                    });
+
+                } catch (Exception e) {
+                    Platform.runLater(() -> {
+                        Notifications.create()
+                                .title("Error")
+                                .text("Failed to start email checking: " + e.getMessage())
+                                .showError();
+                    });
+                }
+            }, 0, 10, TimeUnit.SECONDS);
         }
-    }
+
+
 
     private void stopChecking()
     {

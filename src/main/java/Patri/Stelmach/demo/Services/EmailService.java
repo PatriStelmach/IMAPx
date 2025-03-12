@@ -22,7 +22,17 @@ import static org.hibernate.sql.ast.SqlTreeCreationLogger.LOGGER;
 public class EmailService
 {
     private final Map<String, Store> storeMap = new ConcurrentHashMap<>();
+    private volatile boolean running = true;
 
+    public void stopCheckingEmails()
+    {
+        running = false;
+    }
+
+    public void startCheckingEmails()
+    {
+        running = true;
+    }
 
     //establishes connection with imap server
     public synchronized Store establishConnection (String imap, String user, String password) throws MessagingException
@@ -63,51 +73,59 @@ public class EmailService
     }
 
     /*searches for emails with attachments and "[RED]" in subject, then saves the subject in new folder
-    (or not new, if it already exists) at /home/user, saves the attachement there,
+    (or not new, if it already exists) at /home/user, saves the attachment there,
      then moves given email to OLD-RED folder in your email box*/
-    public void checkEmails (Store store) throws MessagingException, IOException
+    public void checkEmails(Store store)
     {
-        Folder inbox = store.getFolder("inbox");
-        inbox.open(Folder.READ_WRITE);
-
-        Message[] messages = inbox.search(new SubjectTerm("[RED]"));
-
-        for (Message message : messages)
+        Folder inbox = null;
+        try
         {
-            System.out.println( "checking for message");
+            System.out.println("Checking message");
+            inbox = store.getFolder("inbox");
+            inbox.open(Folder.READ_WRITE);
 
-            if (hasAttachment(message))
-            {
-                System.out.println( "there is something");
-                Path subjectPath = Paths.get("C:\\Users\\" + message.getSubject());
-                Files.createDirectories(subjectPath);
 
-                saveAttachments(message);
-                moveToFolder(store, message);
+            Message[] messages = inbox.search(new SubjectTerm("[RED]"));
 
-                Platform.runLater(() ->
-                {
-                    try
-                    {
-                        Notifications.create()
-                                .title("Email found")
-                                .text( "Sender: " + message.getFrom()[0]+ "\n" +
-                                       "Subject: " + message.getSubject() + "\n" +
-                                       "Attachments: " + getAttachmentCount(message) + "\n" +
-                                       "Saved to: " + subjectPath.toString())
-                                .showInformation();
-                    } catch (MessagingException e) {
-                        throw new RuntimeException(e);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
+            for (Message message : messages) {
 
-                });
+
+                if (hasAttachment(message)) {
+                    System.out.println("Found message with attachment");
+                    Path subjectPath = Paths.get("C:\\Users\\stelmach.p\\OneDrive - Gdańskie Centrum Informatyczne\\Dokumenty\\GitHub\\cotam\\" + message.getSubject());
+                    Files.createDirectories(subjectPath);
+
+                    saveAttachments(message);
+                    moveToFolder(store, message);
+
+                    Platform.runLater(() -> {
+                        try {
+                            Notifications.create()
+                                    .title("Email Found")
+                                    .text("Sender: " + message.getFrom()[0] + "\n" +
+                                            "Subject: " + message.getSubject() + "\n" +
+                                            "Attachments: " + getAttachmentCount(message) + "\n" +
+                                            "Saved to: " + subjectPath.toString())
+                                    .showInformation();
+                        } catch (MessagingException | IOException e) {
+                            e.printStackTrace();
+                        }
+                    });
+                }
+            }
+        } catch (MessagingException | IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (inbox != null && inbox.isOpen()) {
+                try {
+                    inbox.close(false);
+                } catch (MessagingException e) {
+                    e.printStackTrace();
+                }
             }
         }
-
-        inbox.close(true);
     }
+
 
     private int getAttachmentCount(Message message) throws MessagingException, IOException
     {
@@ -156,7 +174,7 @@ public class EmailService
             if (Part.ATTACHMENT.equalsIgnoreCase(part.getDisposition()))
             {
                 MimeBodyPart mimeBodyPart = (MimeBodyPart) part;
-                File file = new File("C:\\Users" + message.getSubject() + "\\" + mimeBodyPart.getFileName());
+                File file = new File("C:\\Users\\stelmach.p\\OneDrive - Gdańskie Centrum Informatyczne\\Dokumenty\\GitHub\\cotam\\" + message.getSubject() + "\\" + mimeBodyPart.getFileName());
                 mimeBodyPart.saveFile(file);
             }
         }
@@ -212,10 +230,15 @@ public class EmailService
         return emailList;
     }
 
+    public String showEmail(Store store) throws MessagingException
+    {
+        Folder inbox = store.getFolder("inbox");
+        inbox.open(Folder.READ_ONLY);
 
 
 
 
-
+        return "store";
+    }
 
 }

@@ -14,13 +14,17 @@ import java.util.List;
 
 @RequestMapping("/api")
 @RestController
-@AllArgsConstructor
 public class EmailController
 {
 
     private final EmailService emailService;
     private final EmailExecutorService emailExecutorService;
 
+    public EmailController(EmailService emailService, EmailExecutorService emailExecutorService)
+    {
+        this.emailService = emailService;
+        this.emailExecutorService = emailExecutorService;
+    }
 
     @PostMapping("/connect")
     public ResponseEntity<String> connectEmail(@RequestParam String imap, @RequestParam String user, @RequestParam String password)
